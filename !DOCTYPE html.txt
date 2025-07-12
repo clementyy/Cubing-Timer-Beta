@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WCA-Style Cubing Timer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+    #timer {
+      font-size: 6rem;
+      margin: 1rem;
+      transition: color 0.3s ease;
+    }
+    #scramble {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      max-width: 800px;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 2rem;
+      width: 300px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: center;
+    }
+    th {
+      background-color: #333;
+    }
+    .green {
+      color: #00ff80;
+    }
+    .red {
+      color: #ff5555;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #1e90ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1c7ed6;
+    }
+  </style>
+</head>
+<body>
+  <h1>WCA Style Cubing Timer</h1>
+  <div id="scramble">Loading scramble...</div>
+  <div id="timer">0.000</div>
+  <button onclick="resetSolves()">Reset Solves</button>
+
+  <table>
+    <thead>
+      <tr><th>Attempt</th><th>Time (s)</th></tr>
+    </thead>
+    <tbody id="scorecard"></tbody>
+  </table>
+
+  <script>
+    let timerEl = document.getElementById('timer');
+    let scrambleEl = document.getElementById('scramble');
+    let scorecardEl = document.getElementById('scorecard');
+
+    let startTime, running = false, solves = [];
+
+    const events = {
+      '3x3': () => generateScramble(25),
+      '2x2': () => generateScramble(9),
+      '4x4': () => generateScramble(40),
+      '5x5': () => generateScramble(60),
+      '6x6': () => generateScramble(80),
+      '7x7': () => generateScramble(100)
+    };
+
+    let currentEvent = '3x3';
+
+    function generateScramble(length) {
+      const moves = ["R", "L", "U", "D", "F", "B"];
+      const modifiers = ["", "'", "2"];
+      let scramble = [];
+      let lastMove = '';
+      for (let i = 0; i < length; i++) {
+        let move;
+        do {
+          move = moves[Math.floor(Math.random() * moves.length)];
+        } while (move === lastMove);
+        lastMove = move;
+        let mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+        scramble.push(move + mod);
+      }
+      return scramble.join(' ');
+    }
+
+    function newScramble() {
+      scrambleEl.textContent = events[currentEvent]();
+    }
+
+    function updateTimer() {
+      if (running) {
+        let now = performance.now();
+        let diff = (now - startTime) / 1000;
+        timerEl.textContent = diff.toFixed(3);
+        requestAnimationFrame(updateTimer);
+      }
+    }
+
+    function stopTimer() {
+      running = false;
+      let now = performance.now();
+      let time = (now - startTime) / 1000;
+      let formatted = time.toFixed(3);
+      solves.push(formatted);
+      renderSolves();
+      newScramble();
+    }
+
+    function renderSolves() {
+      scorecardEl.innerHTML = '';
+      for (let i = 0; i < solves.length; i++) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${i + 1}</td><td>${solves[i]}</td>`;
+        scorecardEl.appendChild(row);
+      }
+    }
+
+    function resetSolves() {
+      solves = [];
+      renderSolves();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !running) {
+        timerEl.classList.remove('red');
+        timerEl.classList.add('green');
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        if (!running) {
+          timerEl.classList.remove('green');
+          timerEl.classList.add('red');
+          startTime = performance.now();
+          running = true;
+          updateTimer();
+        } else {
+          stopTimer();
+          timerEl.classList.remove('red');
+        }
+      }
+    });
+
+    newScramble();
+  </script>
+</body>
+</html>
