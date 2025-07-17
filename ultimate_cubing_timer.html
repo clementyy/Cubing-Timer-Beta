@@ -1,0 +1,113 @@
+<!-- Real-Time Solve Sync + Stats -->
+<script>
+  function renderTimes() {
+    const list = document.getElementById('timesList');
+    list.innerHTML = '';
+    times.forEach((t, i) => {
+      const li = document.createElement('li');
+      li.textContent = `#${i + 1}: ${t.toFixed(2)}s`;
+      list.appendChild(li);
+    });
+
+    if (times.length) {
+      const mean = times.reduce((a, b) => a + b) / times.length;
+      const best = Math.min(...times);
+      const worst = Math.max(...times);
+      document.getElementById('mean').textContent = `Mean: ${mean.toFixed(2)}s`;
+      document.getElementById('best').textContent = `Best: ${best.toFixed(2)}s`;
+      document.getElementById('worst').textContent = `Worst: ${worst.toFixed(2)}s`;
+
+      const ao = (n) => {
+        if (times.length < n) return 'N/A';
+        const last = times.slice(-n);
+        const trimmed = [...last].sort((a, b) => a - b).slice(1, n - 1);
+        return (trimmed.reduce((a, b) => a + b) / trimmed.length).toFixed(2);
+      };
+      document.getElementById('ao5').textContent = `ao5: ${ao(5)}`;
+      document.getElementById('ao12').textContent = `ao12: ${ao(12)}`;
+      document.getElementById('ao100').textContent = `ao100: ${ao(100)}`;
+
+      const last5 = times.slice(-5);
+      const insights = `Best in last 5: ${Math.min(...last5).toFixed(2)}s, Worst: ${Math.max(...last5).toFixed(2)}s`;
+      document.getElementById('insights').textContent = `Insights: ${insights}`;
+    }
+  }
+
+  function addSolve(time) {
+    times.push(time);
+    saveTimes();
+    renderTimes();
+    if (currentRaceCode) {
+      const entry = {
+        user: currentUser.displayName,
+        time: time,
+        ts: Date.now()
+      };
+      rtdb.ref(`races/${currentRaceCode}/solves`).push(entry);
+    }
+  }
+
+  // Simulate timing system (replace with real timing logic)
+  let timing = false;
+  let startTime = 0;
+  const timerEl = document.getElementById('timer');
+
+  function updateTimerDisplay() {
+    const now = Date.now();
+    const diff = ((now - startTime) / 1000).toFixed(2);
+    timerEl.textContent = diff;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!timing) {
+        timing = true;
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimerDisplay, 50);
+      } else {
+        timing = false;
+        clearInterval(timerInterval);
+        const finalTime = (Date.now() - startTime) / 1000;
+        timerEl.textContent = finalTime.toFixed(2);
+        addSolve(finalTime);
+      }
+    }
+  });
+
+  // Show other racers' times
+  function watchRaceSolves() {
+    if (!currentRaceCode) return;
+    const containerId = 'raceSolves';
+    let container = document.getElementById(containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = containerId;
+      container.className = 'mt-6';
+      document.querySelector('.text-center').appendChild(container);
+    }
+    container.innerHTML = '<h2 class="text-xl font-semibold mb-2">Live Race Times</h2><ul id="raceTimes" class="space-y-1"></ul>';
+    const raceTimesList = document.getElementById('raceTimes');
+    rtdb.ref(`races/${currentRaceCode}/solves`).on('value', snapshot => {
+      const solves = snapshot.val() || {};
+      const entries = Object.values(solves).sort((a, b) => a.ts - b.ts);
+      raceTimesList.innerHTML = '';
+      entries.forEach(entry => {
+        const li = document.createElement('li');
+        li.textContent = `${entry.user}: ${entry.time.toFixed(2)}s`;
+        raceTimesList.appendChild(li);
+      });
+    });
+  }
+
+  // Trigger on race join
+  function joinRace(code) {
+    currentRaceCode = code;
+    rtdb.ref(`races/${code}/scramble`).on('value', snapshot => {
+      const scramble = snapshot.val();
+      if (scramble) document.getElementById('scramble').textContent = scramble;
+    });
+    raceStatus.textContent = `Joined race: ${code}`;
+    watchRaceSolves();
+  }
+</script>
